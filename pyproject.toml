@@ -1,0 +1,27 @@
+[project]
+name = "macos-vm-templates"
+version = "0.1.0"
+description = "macOS templates for Packer"
+authors = [
+    { name = "Koichi Shiraishi", email = "zchee.io@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[tool.black]
+line-length = 119
+target-version = ["py310"]
+
+[tool.ruff]
+# Never enforce `E501` (line length violations).
+ignore = ["C901", "E501", "E741"]
+select = ["C", "E", "F", "I", "W"]
+target-version = "py310"
+line-length = 119
+
+# Ignore import violations in all `__init__.py` files.
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["E402", "F401", "F403", "F811"]
+
+[tool.ruff.isort]
+lines-after-imports = 2
