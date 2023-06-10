@@ -8,7 +8,7 @@ if [ -e .vmfusion_version ] || [[ "$PACKER_BUILDER_TYPE" == vmware* ]]; then
         exit 1
     fi
 
-    TMPMOUNT=`/usr/bin/mktemp -d /tmp/vmware-tools.XXXX`
+    TMPMOUNT=$(/usr/bin/mktemp -d /tmp/vmware-tools.XXXX)
     hdiutil attach "$TOOLS_PATH" -mountpoint "$TMPMOUNT"
 
     INSTALLER_PKG="$TMPMOUNT/Install VMware Tools.app/Contents/Resources/VMware Tools.pkg"

@@ -68,10 +68,10 @@ trap cleanup EXIT INT TERM
 
 
 msg_status() {
-	echo "\033[0;32m-- $1\033[0m"
+	printf "\033[0;32m-- %s\033[0m" "$1"
 }
 msg_error() {
-	echo "\033[0;31m-- $1\033[0m"
+	printf  "\033[0;31m-- %s\033[0m" "$1"
 }
 
 render_template() {
@@ -89,7 +89,7 @@ SUPPORT_DIR="$SCRIPT_DIR/support"
 # Parse the optional command line switches
 USER="vagrant"
 PASSWORD="vagrant"
-IMAGE_PATH="$SUPPORT_DIR/vagrant.jpg"
+# IMAGE_PATH="$SUPPORT_DIR/vagrant.jpg"
 
 # Flags
 DISABLE_REMOTE_MANAGEMENT=0
@@ -105,12 +105,12 @@ while getopts u:p:i:D: OPT; do
       PASSWORD="$OPTARG"
       ;;
     i)
-      IMAGE_PATH="$OPTARG"
+      # IMAGE_PATH="$OPTARG"
       ;;
     D)
-      if [ x${!OPTARG} = x0 ]; then
-        eval $OPTARG=1
-      elif [ x${!OPTARG} != x1 ]; then
+      if [ "${!OPTARG}" = 0 ]; then
+        eval "$OPTARG=1"
+      elif [ "x${!OPTARG}" != x1 ]; then
         msg_error "Unknown flag: ${OPTARG}"
         usage
         exit 1
@@ -124,7 +124,7 @@ while getopts u:p:i:D: OPT; do
 done
 
 # Remove the switches we parsed above.
-shift $(expr $OPTIND - 1)
+shift $(( OPTIND - 1 ))
 
 if [ $(id -u) -ne 0 ]; then
 	msg_error "This script must be run as root, as it saves a disk image with ownerships enabled."
@@ -146,26 +146,26 @@ if [ -d "$ESD" ]; then
 	fi
 fi
 
-VEEWEE_DIR="$(cd "$SCRIPT_DIR/../../../"; pwd)"
-VEEWEE_UID=$(stat -f %u "$VEEWEE_DIR")
-VEEWEE_GID=$(stat -f %g "$VEEWEE_DIR")
+# VEEWEE_DIR="$(cd "$SCRIPT_DIR/../../../"; pwd)"
+# VEEWEE_UID=$(stat -f %u "$VEEWEE_DIR")
+# VEEWEE_GID=$(stat -f %g "$VEEWEE_DIR")
 DEFINITION_DIR="$(cd "$SCRIPT_DIR/.."; pwd)"
 
 if [ "$2" = "" ]; then
     msg_error "Currently an explicit output directory is required as the second argument."
 	exit 1
 	# The rest is left over from the old prepare_veewee_iso.sh script. Not sure if we
-    # should leave in this functionality to automatically locate the veewee directory.
-	DEFAULT_ISO_DIR=1
-	OLDPWD=$(pwd)
-	cd "$SCRIPT_DIR"
-	# default to the veewee/iso directory
-	if [ ! -d "../../../iso" ]; then
-		mkdir "../../../iso"
-		chown $VEEWEE_UID:$VEEWEE_GID "../../../iso"
-	fi
-	OUT_DIR="$(cd "$SCRIPT_DIR"; cd ../../../iso; pwd)"
-	cd "$OLDPWD" # Rest of script depends on being in the working directory if we were passed relative paths
+  # should leave in this functionality to automatically locate the veewee directory.
+	# DEFAULT_ISO_DIR=1
+	# OLDPWD=$(pwd)
+	# cd "$SCRIPT_DIR"
+	# # default to the veewee/iso directory
+	# if [ ! -d "../../../iso" ]; then
+	# 	mkdir "../../../iso"
+	# 	chown $VEEWEE_UID:$VEEWEE_GID "../../../iso"
+	# fi
+	# OUT_DIR="$(cd "$SCRIPT_DIR"; cd ../../../iso; pwd)"
+	# cd "$OLDPWD" # Rest of script depends on being in the working directory if we were passed relative paths
 else
 	OUT_DIR="$2"
 fi
@@ -185,7 +185,7 @@ SHADOW_FILE=$(/usr/bin/mktemp /tmp/veewee-osx-shadow.XXXX)
 rm "$SHADOW_FILE"
 msg_status "Attaching input OS X installer image with shadow file.."
 hdiutil attach "$ESD" -mountpoint "$MNT_ESD" -shadow "$SHADOW_FILE" -nobrowse -owners on 
-if [ $? -ne 0 ]; then
+if ! hdiutil attach "$ESD" -mountpoint "$MNT_ESD" -shadow "$SHADOW_FILE" -nobrowse -owners on; then
 	[ ! -e "$ESD" ] && msg_error "Could not find $ESD in $(pwd)"
 	msg_error "Could not mount $ESD on $MNT_ESD"
 	exit 1
@@ -196,15 +196,15 @@ BASE_SYSTEM_DMG="$MNT_ESD/BaseSystem.dmg"
 MNT_BASE_SYSTEM=$(/usr/bin/mktemp -d /tmp/veewee-osx-basesystem.XXXX)
 [ ! -e "$BASE_SYSTEM_DMG" ] && msg_error "Could not find BaseSystem.dmg in $MNT_ESD"
 hdiutil attach "$BASE_SYSTEM_DMG" -mountpoint "$MNT_BASE_SYSTEM" -nobrowse -owners on
-if [ $? -ne 0 ]; then
+if ! hdiutil attach "$BASE_SYSTEM_DMG" -mountpoint "$MNT_BASE_SYSTEM" -nobrowse -owners on; then
 	msg_error "Could not mount $BASE_SYSTEM_DMG on $MNT_BASE_SYSTEM"
 	exit 1
 fi
 SYSVER_PLIST_PATH="$MNT_BASE_SYSTEM/System/Library/CoreServices/SystemVersion.plist"
 
 DMG_OS_VERS=$(/usr/libexec/PlistBuddy -c 'Print :ProductVersion' "$SYSVER_PLIST_PATH")
-DMG_OS_VERS_MAJOR=$(echo $DMG_OS_VERS | awk -F "." '{print $2}')
-DMG_OS_VERS_MINOR=$(echo $DMG_OS_VERS | awk -F "." '{print $3}')
+DMG_OS_VERS_MAJOR=$(echo "$DMG_OS_VERS" | awk -F "." '{print $2}')
+DMG_OS_VERS_MINOR=$(echo "$DMG_OS_VERS" | awk -F "." '{print $3}')
 DMG_OS_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :ProductBuildVersion' "$SYSVER_PLIST_PATH")
 msg_status "OS X version detected: 10.$DMG_OS_VERS_MAJOR.$DMG_OS_VERS_MINOR, build $DMG_OS_BUILD"
 
@@ -221,7 +221,7 @@ msg_status "Making firstboot installer pkg.."
 # payload items
 mkdir -p "$SUPPORT_DIR/pkgroot/private/var/db/dslocal/nodes/Default/users"
 mkdir -p "$SUPPORT_DIR/pkgroot/private/var/db/shadow/hash"
-BASE64_IMAGE=$(openssl base64 -in "$IMAGE_PATH")
+# BASE64_IMAGE=$(openssl base64 -in "$IMAGE_PATH")
 # Replace USER and BASE64_IMAGE in the user.plist file with the actual user and image
 render_template "$SUPPORT_DIR/user.plist" > "$SUPPORT_DIR/pkgroot/private/var/db/dslocal/nodes/Default/users/$USER.plist"
 USER_GUID=$(/usr/libexec/PlistBuddy -c 'Print :generateduid:0' "$SUPPORT_DIR/user.plist")
@@ -230,12 +230,17 @@ USER_GUID=$(/usr/libexec/PlistBuddy -c 'Print :generateduid:0' "$SUPPORT_DIR/use
 
 # postinstall script
 mkdir -p "$SUPPORT_DIR/tmp/Scripts"
-cat "$SUPPORT_DIR/pkg-postinstall" \
-    | sed -e "s/__USER__PLACEHOLDER__/${USER}/" \
-    | sed -e "s/__DISABLE_REMOTE_MANAGEMENT__/${DISABLE_REMOTE_MANAGEMENT}/" \
-    | sed -e "s/__DISABLE_SCREEN_SHARING__/${DISABLE_SCREEN_SHARING}/" \
-    | sed -e "s/__DISABLE_SIP__/${DISABLE_SIP}/" \
-    > "$SUPPORT_DIR/tmp/Scripts/postinstall"
+# cat "$SUPPORT_DIR/pkg-postinstall" \
+#     | sed -e "s/__USER__PLACEHOLDER__/${USER}/" \
+#     | sed -e "s/__DISABLE_REMOTE_MANAGEMENT__/${DISABLE_REMOTE_MANAGEMENT}/" \
+#     | sed -e "s/__DISABLE_SCREEN_SHARING__/${DISABLE_SCREEN_SHARING}/" \
+#     | sed -e "s/__DISABLE_SIP__/${DISABLE_SIP}/" \
+#     > "$SUPPORT_DIR/tmp/Scripts/postinstall"
+  sed -e "s/__USER__PLACEHOLDER__/${USER}/" "$SUPPORT_DIR/pkg-postinstall" \
+| sed -e "s/__DISABLE_REMOTE_MANAGEMENT__/${DISABLE_REMOTE_MANAGEMENT}/" "$SUPPORT_DIR/pkg-postinstall" \
+| sed -e "s/__DISABLE_SCREEN_SHARING__/${DISABLE_SCREEN_SHARING}/" "$SUPPORT_DIR/pkg-postinstall" \
+| sed -e "s/__DISABLE_SIP__/${DISABLE_SIP}/" "$SUPPORT_DIR/pkg-postinstall" \
+> "$SUPPORT_DIR/tmp/Scripts/postinstall"
 chmod a+x "$SUPPORT_DIR/tmp/Scripts/postinstall"
 
 # build it
@@ -271,7 +276,7 @@ msg_status "Restoring ('asr restore') the BaseSystem to the read-write DMG.."
 asr restore --source "$BASE_SYSTEM_DMG" --target "$MNT_BASE_SYSTEM" --noprompt --noverify --erase
 rm -r "$MNT_BASE_SYSTEM"
 
-if [ $DMG_OS_VERS_MAJOR -ge 9 ]; then
+if [ "$DMG_OS_VERS_MAJOR" -ge 9 ]; then
     MNT_BASE_SYSTEM="/Volumes/OS X Base System"
     BASESYSTEM_OUTPUT_IMAGE="$OUTPUT_DMG"
     PACKAGES_DIR="$MNT_BASE_SYSTEM/System/Installation/Packages"
@@ -306,7 +311,7 @@ rm -rf "$SUPPORT_DIR/tmp"
 msg_status "Unmounting BaseSystem.."
 hdiutil detach "$MNT_BASE_SYSTEM"
 
-if [ $DMG_OS_VERS_MAJOR -lt 9 ]; then
+if [ "$DMG_OS_VERS_MAJOR" -lt 9 ]; then
 	msg_status "Pre-Mavericks we save back the modified BaseSystem to the root of the ESD."
 	hdiutil convert -format UDZO -o "$MNT_ESD/BaseSystem.dmg" "$BASE_SYSTEM_DMG_RW"
 fi
@@ -314,7 +319,7 @@ fi
 msg_status "Unmounting ESD.."
 hdiutil detach "$MNT_ESD"
 
-if [ $DMG_OS_VERS_MAJOR -ge 9 ]; then
+if [ "$DMG_OS_VERS_MAJOR" -ge 9 ]; then
 	msg_status "On Mavericks and later, the entire modified BaseSystem is our output dmg."
 	hdiutil convert -format UDZO -o "$OUTPUT_DMG" "$BASE_SYSTEM_DMG_RW"
 else
@@ -325,7 +330,7 @@ rm -rf "$MNT_ESD" "$SHADOW_FILE"
 
 if [ -n "$SUDO_UID" ] && [ -n "$SUDO_GID" ]; then
 	msg_status "Fixing permissions.."
-	chown -R $SUDO_UID:$SUDO_GID \
+	chown -R "$SUDO_UID:$SUDO_GID" \
 		"$OUT_DIR"
 fi
 
